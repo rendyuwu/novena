@@ -82,6 +82,9 @@ With your roster (typed in, imported, or a made-up sample roster to try things f
   friends or messages ([the exact list](sync/novena_sync/payload.py)).
 - Notifications (sanity, recruitment, drones) are the browser's own, scheduled by the open page; nothing is sent.
 - Depot screenshots are read in your browser and never uploaded.
+- The optional [MCP server](#mcp-server-optional) is the exception to "nowhere else": it reads the roster file you point
+  it to, and its answers, built from that file, go to the chat app you connect it to and on to that app's LLM
+  provider. The server itself only fetches the published data files.
 - No automation of any kind: nothing here, Novena Sync included, drives the game client.
 
 ## Data sources and credits
@@ -140,6 +143,44 @@ npm test                              # unit + golden tests (TypeScript ports vs
 cd pipeline && python -m pytest -q    # pipeline tests
 npm run build && npm run smoke        # Playwright smoke test of the built site, phone and desktop
 ```
+
+## MCP server (optional)
+
+For chat apps that speak MCP (Hermes Agent, LibreChat and others): a server in [`mcp/`](mcp) that runs on your own
+computer over stdio, reads the published data and your roster file, and answers with the site's own calculations.
+Build it from this repo (Node 20+):
+
+```bash
+npm install
+npm run mcp:build          # writes mcp/dist/server.js
+```
+
+The chat app starts it. Its entry in the app's config (the key that holds MCP servers varies by app):
+
+```json
+"novena": {
+  "command": "node",
+  "args": ["/path/to/novena/mcp/dist/server.js"],
+  "env": { "NOVENA_SERVER": "en" }
+}
+```
+
+Settings, all optional:
+
+- `NOVENA_SERVER`: `en` (default), `jp`, `kr` or `cn`.
+- `NOVENA_ROSTER`: the roster file, read again on every call. A Novena Sync file (default: Novena Sync's own,
+  `~/Documents/Novena Sync/novena-sync-<server>.json`), a roster exported from the site, or a Settings backup, the
+  only one that carries your Planner targets and daily sanity.
+- `NOVENA_DATA_URL`: where the data comes from (default `https://vanastraea.github.io/novena/data/v1/`), e.g.
+  `http://localhost:5173/data/v1/` while `npm run dev` runs. Files are kept for an hour.
+
+Tools, all read-only:
+
+- `find_operators_by_effect`: operators whose trait, talents, skills or modules mention a game effect such as Fear
+  or Stun, with the sentence it comes from and, for your operators, whether it's usable now or what it needs.
+- `pull_plan`: the Pull planner: savings in pulls, steady income, and pulls by each banner coming.
+- `sanity_dump`: the Sanity Dump: what to farm with today's sanity.
+- `priorities`: Priorities with the default content weights and no filters.
 
 ## Contributing
 

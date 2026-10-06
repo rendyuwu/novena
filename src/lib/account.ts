@@ -4,9 +4,9 @@ import type { Server } from "../types";
 import { load } from "./data";
 import { parse, reach } from "./build";
 import type { Const, CostData, OpState } from "./costs";
-import type { GuidebookFile, PlanInput, PlanResult } from "./planner";
+import { SUPPORT_SLOTS, type GuidebookFile, type PlanInput, type PlanResult } from "./planner";
 import type { Account, PlanTarget } from "../state";
-import type { OpIndex, UsageFile } from "../types";
+import type { ItemsFile, Meta, OpIndex, UsageFile } from "../types";
 
 // kept as published: the planner's worker unpacks it, and a few flat arrays are much quicker to hand over than 40k rows
 export const guidebook = () => load<GuidebookFile>("common/guidebook.json");
@@ -37,6 +37,20 @@ export function goalStates(targets: PlanTarget[], states: Record<string, OpState
     } catch { /* unreachable target: shown as an error on the Planner */ }
   }
   return out;
+}
+
+/** The planner's input for a roster, before the player's filters: Planner targets as goals, every operator on the
+ *  server borrowable as support. */
+export function planInput(x: { server: Server; account: Account; targets: PlanTarget[]; book: GuidebookFile; costs: Record<string, CostData>; ops: OpIndex[]; meta: Meta; items: ItemsFile; weights: Record<string, number>; top: number; support: boolean }): PlanInput {
+  const byId = new Map(x.ops.map((o) => [o.id, o]));
+  const states = rosterStates(x.account, x.costs);
+  return {
+    book: x.book, costs: x.costs, constTable: x.meta.const, values: x.items.values, roster: states,
+    available: x.ops.filter((o) => o.on.includes(x.server)).map((o) => o.id),
+    shared: x.ops.filter((o) => o.patch).map((o) => o.id),
+    fixed: x.ops.filter((o) => o.obtain === "is").map((o) => o.id),
+    weights: x.weights, top: x.top, support: x.support ? SUPPORT_SLOTS : 0, goals: goalStates(x.targets, states, x.costs, byId),
+  };
 }
 
 /** The community build (E2, main skill M3, main module) as a target state from `from`, or null. */

@@ -3,9 +3,9 @@
 // press a button. The last result is kept per server in this browser, so it's there straight away on the next visit.
 import { effect, signal } from "@preact/signals";
 import { itemsSig, metaSig } from "../components/ui";
-import { costTable, goalStates, guidebook, lastPlan, rosterStates, runPlan } from "./account";
+import { costTable, guidebook, lastPlan, planInput, runPlan } from "./account";
 import { operators } from "./data";
-import { SUPPORT_SLOTS, type PlanResult } from "./planner";
+import type { PlanResult } from "./planner";
 import { getItem, pref, setItem, setPref } from "./storage";
 import { contentLevels, effectiveWeights } from "./weights";
 import { account, hasRoster, server, targets } from "../state";
@@ -59,14 +59,8 @@ export async function buildPriorities(): Promise<void> {
       const items = itemsSig.value!, meta = metaSig.value!;
       const [book, costs, opsList] = await Promise.all([guidebook(), costTable(s), operators(s)]);
       const ops = new Map(opsList.map((o) => [o.id, o]));
-      const states = rosterStates(account.value, costs);
       const result = await runPlan({
-        book, costs, constTable: meta.const, values: items.values, roster: states,
-        available: opsList.filter((o) => o.on.includes(s)).map((o) => o.id),
-        shared: opsList.filter((o) => o.patch).map((o) => o.id),
-        fixed: opsList.filter((o) => o.obtain === "is").map((o) => o.id),
-        weights: effectiveWeights(),
-        top: prioTop.value, support: prioSupport.value ? SUPPORT_SLOTS : 0, goals: goalStates(targets.value, states, costs, ops),
+        ...planInput({ server: s, account: account.value, targets: targets.value, book, costs, ops: opsList, meta, items, weights: effectiveWeights(), top: prioTop.value, support: prioSupport.value }),
         ...planFilters(ops),
       }, (phase, done, total) => (prioStatus.value = total > 1 ? `${phase} (${done}/${total})` : phase));
       lastPlan.value = { key, result };

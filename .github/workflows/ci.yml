@@ -23,6 +23,8 @@ jobs:
         run: cd sync && pip install ".[dev]" && python -m pytest -q
       - name: Type check
         run: npm run typecheck
+      - name: MCP server builds and starts
+        run: npm run mcp:build && node mcp/dist/server.js < /dev/null
       - name: Unit and golden tests
         run: npm test
       # The smoke test needs real data. Reuse the cached source downloads so a push doesn't hit community services.
